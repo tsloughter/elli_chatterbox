@@ -5,16 +5,18 @@
 
 -include_lib("chatterbox/include/http2_socket.hrl").
 
-start_link(Server, ListenSocket, Options, Callback) ->
+start_link(Server, {ssl, ListenSocket}, Options, Callback) ->
     proc_lib:start_link(?MODULE, accept, [Server, ListenSocket, Options, Callback]).
 
 accept(Server, ListenSocket, Options, Callback) ->
-    case catch elli_tcp:accept(ListenSocket, accept_timeout(Options)) of
-        {ok, {ssl, Socket}} ->
-            ok = proc_lib:init_ack({ok, self()}),
-            ok = ssl:setopts(Socket, [{active, once}]),
+    ok = proc_lib:init_ack({ok, self()}),
+    case ssl:transport_accept(ListenSocket, accept_timeout(Options)) of
+        {ok, Socket} ->
+            gen_server:cast(Server, accepted),
+            ok = ssl:ssl_accept(Socket),
             case ssl:negotiated_protocol(Socket) of
                 {ok, <<"h2">>} ->
+                    ok = ssl:setopts(Socket, [{active, once}]),
                     {ok, ServerPid} = http2_connection:start_link(self(), server),
                     gen_server:enter_loop(http2_socket,
                                           [],
@@ -22,9 +24,8 @@ accept(Server, ListenSocket, Options, Callback) ->
                                             type = server,
                                             http2_pid=ServerPid,
                                             socket={ssl, Socket}
-                                           }, 0);
+                                           });
                 _ ->
-                    ok = proc_lib:init_ack({ok, self()}),
                     elli_http:keepalive_loop({ssl, Socket}, Options, Callback)
             end;
         {error, timeout} ->

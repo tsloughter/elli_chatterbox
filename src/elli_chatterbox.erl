@@ -147,12 +147,13 @@ handle_call({set_callback, Callback, CallbackArgs}, _From, State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
+handle_cast(accepted, State) ->
+    {noreply, start_add_acceptor(State)};
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
-handle_info({ack, _, {ok, _}}, State) ->
-    {noreply, start_add_acceptor(State)};
 handle_info({'EXIT', _Pid, {error, emfile}}, State) ->
     error_logger:error_msg("No more file descriptors, shutting down~n"),
     {stop, emfile, State};
@@ -164,7 +165,6 @@ handle_info({'EXIT', Pid, Reason}, State) ->
     error_logger:error_msg("Elli request (pid ~p) unexpectedly "
                            "crashed:~n~p~n", [Pid, Reason]),
     {noreply, remove_acceptor(State, Pid)}.
-
 
 terminate(_Reason, _State) ->
     ok.
