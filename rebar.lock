@@ -1,0 +1,13 @@
+[{<<"elli">>,{pkg,<<"elli">>,<<"1.0.4">>},0},
+ {<<"goldrush">>,
+  {git,"git://github.com/DeadZen/goldrush.git",
+       {ref,"212299233c7e7eb63a97be2777e1c05ebaa58dbe"}},
+  2},
+ {<<"hpack">>,
+  {git,"git://github.com/joedevivo/hpack.git",
+       {ref,"1ee42d1ecff9db26b5dadf9abcb9a67ebf2a869a"}},
+  1},
+ {<<"lager">>,
+  {git,"git://github.com/basho/lager.git",
+       {ref,"75970de664c5634c577bdedf29c87f58a16893ca"}},
+  1}].

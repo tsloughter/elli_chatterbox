@@ -1,0 +1,17 @@
+{application, elli_chatterbox,
+ [{description, "An OTP library"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib,
+    elli,
+    chatterbox
+   ]},
+  {env,[{handler, ec_example_handler}]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
