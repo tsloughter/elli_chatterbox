@@ -1,6 +1,6 @@
 -module(ec_example_handler).
 
--export([handle/2]).
+-export([handle/3]).
 
-handle(_Headers, _ReqBody) ->
+handle(_Method, _Path, _Req) ->
     {ok, 200, [{<<"content-type">>, <<"text/html">>}], <<"Hello There!">>}.
