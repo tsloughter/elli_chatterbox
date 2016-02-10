@@ -22,7 +22,7 @@
 
 start_link() ->
     {ok, Handler} = application:get_env(elli_chatterbox, handler),
-    start_link([{callback, elli_handler},
+    start_link([{callback, elli_callback},
                 {ssl, true},
                 {certfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.crt")},
                 {keyfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.key")},
