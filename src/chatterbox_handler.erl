@@ -26,7 +26,7 @@ handle(ConnPid, StreamId, Headers, ReqBody) ->
                   stream_id = StreamId,
                   conn_pid = ConnPid},
     {ok, Handler} = application:get_env(elli_chatterbox, handler),
-    {ok, Status, RespHeaders, RespBody} = Handler:handle(Method, URL, Req),
+    {Status, RespHeaders, RespBody} = Handler:handle(Method, URL, Req),
     ResponseHeaders = [{<<":status">>, integer_to_binary(Status)} | RespHeaders],
     http2_connection:send_headers(ConnPid, StreamId, ResponseHeaders),
     http2_connection:send_body(ConnPid, StreamId, RespBody).
