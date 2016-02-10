@@ -8,7 +8,7 @@
                  args      :: [{binary(), any()}],
                  raw_path  :: binary(),
                  version   :: vsn(),
-                 headers   :: headers(),
+                 headers   :: [{binary(), binary() | string()}],
                  body      :: binary() | iolist(),
                  pid       :: pid(),
                  stream_id :: integer(),
