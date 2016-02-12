@@ -3,6 +3,8 @@ elli_chatterbox
 
 Elli for http1 and chatterbox for http2.
 
+See the [tiles example here](https://github.com/tsloughter/chatterbox_tiles).
+
 Build
 -----
 
