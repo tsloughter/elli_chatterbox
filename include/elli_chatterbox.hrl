@@ -1,5 +1,4 @@
--type method() :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' |
-                  'PUT' | 'DELETE' | 'TRACE' | binary().
+-type method() :: binary().
 
 -type vsn() :: {0,9} | {1,0} | {1,1} | {2,0}.
 

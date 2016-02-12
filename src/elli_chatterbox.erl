@@ -18,15 +18,16 @@
                 acceptors :: non_neg_integer(),
                 open_reqs :: non_neg_integer(),
                 options :: [{_, _}],
+                transport :: ssl | gen_tcp,
+                version :: http1 | http2,
                 callback :: callback()}).
 
 start_link() ->
-    {ok, Handler} = application:get_env(elli_chatterbox, handler),
-    start_link([{callback, elli_callback},
-                {ssl, true},
-                {certfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.crt")},
-                {keyfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.key")},
-                {callback_args, [Handler]}]).
+    CertFile = application:set_env(elli_chatterbox, certfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.crt")),
+    KeyFile = application:set_env(elli_chatterbox, keyfile, filename:join(code:priv_dir(elli_chatterbox), "localhost.key")),
+    start_link([{ssl, true},
+                {certfile, CertFile},
+                {keyfile, KeyFile}]).
 
 start_link(Opts) ->
     application:set_env(chatterbox, content_handler, chatterbox_handler),
@@ -46,8 +47,10 @@ init([Opts]) ->
     %% they exit
     process_flag(trap_exit, true),
 
-    Callback       = required_opt(callback, Opts),
-    CallbackArgs   = proplists:get_value(callback_args, Opts),
+    Handler = proplists:get_value(handler, Opts, ec_example_handler),
+
+    Callback       = elli_callback,
+    CallbackArgs   = [Handler],
     IPAddress      = proplists:get_value(ip, Opts, {0,0,0,0}),
     Port           = proplists:get_value(port, Opts, 8080),
     MinAcceptors   = proplists:get_value(min_acceptors, Opts, 100),
@@ -55,14 +58,17 @@ init([Opts]) ->
     UseSSL         = proplists:get_value(ssl, Opts, false),
     KeyFile        = proplists:get_value(keyfile, Opts),
     CertFile       = proplists:get_value(certfile, Opts),
-    SockType       = case UseSSL of true -> ssl; false -> plain end,
-    SSLSockOpts    = case UseSSL of
-                         true -> [{keyfile, KeyFile},
-                                  {certfile, CertFile},
-                                  {honor_cipher_order, false},
-                                  {versions, ['tlsv1.2']},
-                                  {next_protocols_advertised, [<<"h2">>]}];
-                         false -> [] end,
+    Transport      = case UseSSL of true -> ssl; false -> gen_tcp end,
+    {SockOpts, Version} = case UseSSL of
+                               true ->
+                                   {[{keyfile, KeyFile},
+                                    {certfile, CertFile},
+                                    {honor_cipher_order, false},
+                                    {versions, ['tlsv1.2']},
+                                    {next_protocols_advertised, [<<"h2">>]}], all};
+                               false ->
+                                  {[], proplists:get_value(default_http_version, Opts, http1)}
+                           end,
 
     AcceptTimeout  = proplists:get_value(accept_timeout, Opts, 10000),
     RequestTimeout = proplists:get_value(request_timeout, Opts, 60000),
@@ -76,18 +82,18 @@ init([Opts]) ->
                {body_timeout, BodyTimeout},
                {max_body_size, MaxBodySize}],
 
-    {ok, Socket} = elli_tcp:listen(SockType, Port, [binary,
-                                                    {ip, IPAddress},
-                                                    {reuseaddr, true},
-                                                    {backlog, 32768},
-                                                    {packet, raw},
-                                                    {active, false}
-                                                    | SSLSockOpts
-                                                   ]),
+    {ok, Socket} = Transport:listen(Port, [binary,
+                                           {ip, IPAddress},
+                                           {reuseaddr, true},
+                                           {backlog, 32768},
+                                           {packet, raw},
+                                           {active, false}
+                                           | SockOpts
+                                          ]),
 
     Acceptors = ets:new(acceptors, [private, set]),
     StartAcc  = fun() ->
-                    Pid = elli_chatterbox_http:start_link(self(), Socket, Options, {Callback, CallbackArgs}),
+                    Pid = elli_chatterbox_http:start_link(self(), Version, Transport, Socket, Options, {Callback, CallbackArgs}),
                     ets:insert(Acceptors, {Pid})
                 end,
     [StartAcc() || _ <- lists:seq(1, MinAcceptors)],
@@ -96,6 +102,8 @@ init([Opts]) ->
                 acceptors = Acceptors,
                 open_reqs = 0,
                 options = Options,
+                transport = Transport,
+                version = Version,
                 callback = {Callback, CallbackArgs}}}.
 
 handle_call(stop, _From, State) ->
@@ -132,15 +140,7 @@ remove_acceptor(State, Pid) ->
     State#state{open_reqs = State#state.open_reqs - 1}.
 
 start_add_acceptor(State) ->
-    Pid = elli_chatterbox_http:start_link(self(), State#state.socket,
+    Pid = elli_chatterbox_http:start_link(self(), State#state.version, State#state.transport, State#state.socket,
                                           State#state.options, State#state.callback),
     ets:insert(State#state.acceptors, {Pid}),
     State#state{open_reqs = State#state.open_reqs + 1}.
-
-required_opt(Name, Opts) ->
-    case proplists:get_value(Name, Opts) of
-        undefined ->
-            throw(badarg);
-        Value ->
-            Value
-    end.
