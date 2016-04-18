@@ -31,6 +31,7 @@ start_link() ->
 
 start_link(Opts) ->
     application:set_env(chatterbox, content_handler, chatterbox_handler),
+    application:set_env(chatterbox, stream_callback_mod, chatterbox_handler),
     case proplists:get_value(name, Opts) of
         undefined ->
             gen_server:start_link(?MODULE, [Opts], []);
@@ -48,6 +49,7 @@ init([Opts]) ->
     process_flag(trap_exit, true),
 
     Handler = proplists:get_value(handler, Opts, ec_example_handler),
+    application:set_env(elli_chatterbox, handler, Handler),
 
     Callback       = elli_callback,
     CallbackArgs   = [Handler],

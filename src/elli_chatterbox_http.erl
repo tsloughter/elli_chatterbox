@@ -3,7 +3,7 @@
 -export([start_link/6,
          accept/6]).
 
--include_lib("chatterbox/include/http2_socket.hrl").
+-include_lib("chatterbox/include/http2.hrl").
 
 start_link(Server, Version, Transport, ListenSocket, Options, Callback) ->
     proc_lib:start_link(?MODULE, accept, [Server, Version, Transport, ListenSocket, Options, Callback]).
@@ -16,29 +16,14 @@ accept(Server, Version, Transport, ListenSocket, Options, Callback) ->
         {ok, Socket} when Transport =:= ssl ->
             case ssl:negotiated_protocol(Socket) of
                 {ok, <<"h2">>} ->
-                    ok = ssl:setopts(Socket, [{active, once}]),
-                    {ok, ServerPid} = http2_connection:start_link(self(), server),
-                    gen_server:enter_loop(http2_socket,
-                                          [],
-                                          #http2_socket_state{
-                                            type = server,
-                                            http2_pid=ServerPid,
-                                            socket={ssl, Socket}
-                                           });
+                    http2_connection:become({ssl, Socket});
                 _ ->
                     elli_http:keepalive_loop({ssl, Socket}, Options, Callback)
             end;
         {ok, Socket} when Version =:= http1 ->
             elli_http:keepalive_loop({plain, Socket}, Options, Callback);
         {ok, Socket} when Version =:= http2 ->
-            {ok, ServerPid} = http2_connection:start_link(self(), server),
-            gen_server:enter_loop(http2_socket,
-                                  [],
-                                  #http2_socket_state{
-                                    type = server,
-                                    http2_pid=ServerPid,
-                                    socket={gen_tcp, Socket}
-                                   });
+            http2_connection:become({gen_tcp, Socket});
         {error, timeout} ->
             ?MODULE:accept(Server, Version, Transport, ListenSocket, Options, Callback);
         {error, econnaborted} ->
